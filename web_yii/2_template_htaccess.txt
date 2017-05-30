@@ -1,0 +1,13 @@
+Options +FollowSymlinks
+IndexIgnore */*
+
+RewriteEngine on
+#RewriteBase /~qj/EceOverseas/
+
+# if a directory or a file exists, use it directly
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# otherwise forward it to index.php
+RewriteRule . index.php
+DirectoryIndex home.html index.php index.shtml page1.php
