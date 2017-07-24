@@ -8,6 +8,7 @@
 #include "esp_partition.h"
 #include "bt.h"
 #include "esp_log.h"
+#include "esp_bt_main.h"
 
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -15,11 +16,18 @@
 #include "driver/rtc_io.h"
 #include <rom/rtc.h>
 
+#include <stddef.h>
+
+#include "read_data.h"
+#include "ulp_adc.h"
 
 #define GPIO_INPUT_IO_TRIGGER     2
 #define GPIO_INPUT_IO_RESETCOUNT  13
 
 static const char *tag = "BLE_ADV";
+
+static char ADV_DATA[26] = "Mr DAT"; 
+static int TIME = 10;
 
 #define HCI_H4_CMD_PREAMBLE_SIZE           (4)
 
@@ -52,9 +60,6 @@ enum {
 };
 
 static uint8_t hci_cmd_buf[128];
-void resetCount();
-void readCountFlash(int* serial, int* count);
-void writeDataFlash(int serial, int count);
 
 /*
  * @brief: BT controller callback function, used to notify the upper layer that
@@ -65,33 +70,6 @@ static void controller_rcv_pkt_ready(void)
     printf("controller rcv pkt ready\n");
 }
 
-void onButton(){
-    int count = 0;
-    int serial = 0;
-    readCountFlash(&serial, &count);
-    count++;
-    serial++;
-    String out = String(serial);
-    out += " " + String(count);
-    writeDataFlash(serial, count);
-    ble.begin(out);
-}
-
-
-
-void onToppedUp() {
-    int count = 0;
-    int serial = 0;
-    readCountFlash(&serial, &count);
-    if (count == 0) return;
-    resetCount();
-    count = 0;
-    serial++;
-    String out = String(serial);
-    out += " " + String(count);
-    writeDataFlash(serial, count);
-    ble.begin(out);
-}
 
 /*
  * @brief: BT controller callback function, to transfer data packet to upper
@@ -222,17 +200,54 @@ static void hci_cmd_send_ble_set_adv_data(char *adv_name)
     esp_vhci_host_send_packet(hci_cmd_buf, sz);
 }
 
+bool btStop(){
+	esp_bluedroid_disable();
+        esp_bluedroid_deinit();
+    if(esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE){
+        return true;
+    }
+    if(esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED){
+        if (esp_bt_controller_disable(ESP_BT_MODE_BTDM)) {
+            //log_e("BT Disable failed");
+            return false;
+        }
+        while(esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED);
+    }
+    if(esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_INITED){
+        return true;
+    }
+    //log_e("BT Stop failed");
+    return false;
+}
+
+
 /*
  * @brief: send HCI commands to perform BLE advertising;
  */
 void bleAdvtTask(void *pvParameters)
 {
+	//read serial and count
+	/* int serial, count;
+	readCountFlash(&serial, &count);
+	serial++; count++;
+	writeDataFlash(serial, count);
+	
+	char bufferSerial[snprintf(NULL, 0, "%d", serial) + 1];
+	sprintf(bufferSerial, "%d", serial);
+	char bufferCount[snprintf(NULL, 0, "%d", count) + 1];
+	sprintf(bufferCount, "%d", count);
+	
+	char adv_data[26];
+	strcpy(adv_data, bufferSerial);
+	strcat(adv_data, " ");
+	strcat(adv_data, bufferCount); */
+	
     int cmd_cnt = 0;
     bool send_avail = false;
     esp_vhci_host_register_callback(&vhci_host_cb);
     printf("BLE advt task start\n");
 	int timeAdv = 0;
-	char *adv_data = "MRDAT_SAY_HELLO";
+	
     while (1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         send_avail = esp_vhci_host_check_send_available();
@@ -240,155 +255,51 @@ void bleAdvtTask(void *pvParameters)
             switch (cmd_cnt) {
             case 0: hci_cmd_send_reset(); ++cmd_cnt; break;
             case 1: hci_cmd_send_ble_set_adv_param(); ++cmd_cnt; break;
-            case 2: hci_cmd_send_ble_set_adv_data(adv_data); ++cmd_cnt; break;
+            case 2: hci_cmd_send_ble_set_adv_data(ADV_DATA); ++cmd_cnt; break;
             case 3: hci_cmd_send_ble_adv_start(); ++cmd_cnt; break;
+			default:
+				break;
             }
         }
-        printf("BLE Advertise, flag_send_avail: %d, cmd_sent: %d\n", send_avail, cmd_cnt);
+		//if (cmd_cnt >= 4) break;
+        printf("BLE Advertise, flag_send_avail: %d, cmd_sent: %d\n", send_avail, timeAdv);
 		timeAdv++;
-		if (timeAdv == 5)
-		esp_deep_sleep_start();
+		if (timeAdv == TIME) {
+			btStop();
+			break;
+		}
+		//esp_deep_sleep_start();
     }
 }
 
-
-void wakeupCause() {
-  switch (esp_deep_sleep_get_wakeup_cause()) {
-        case ESP_DEEP_SLEEP_WAKEUP_EXT1: {
-            uint64_t wakeup_pin_mask = esp_deep_sleep_get_ext1_wakeup_status();
-            if (wakeup_pin_mask != 0) {
-                int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
-                printf("Wake up from GPIO %d\n", pin);
-                if (pin == GPIO_INPUT_IO_TRIGGER) {
-                    //onButton();
-					printf("Wake up from Trigger\n");
-                } else if (pin == GPIO_INPUT_IO_RESETCOUNT) {
-                    //onToppedUp();
-					printf("Wake up from reset count\n");
-                }
-            } else {
-                printf("Wake up from GPIO\n");
-            }
-            break;
-        }
-        default:
-          printf("Wake up from RESET");
-          //ble.begin("RESET");
-  }
-}
-
-
-void setupPins() {
-    esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-    const int ext_wakeup_pin_1 = GPIO_INPUT_IO_TRIGGER;
-    const int ext_wakeup_pin_2 = GPIO_INPUT_IO_RESETCOUNT;
-    //pinMode(GPIO_INPUT_IO_TRIGGER, INPUT_PULLDOWN);
-    //pinMode(GPIO_INPUT_IO_RESETCOUNT, INPUT_PULLDOWN);
-
-    const uint64_t ext_wakeup_pin_1_mask = 1LL << ext_wakeup_pin_1;
-    const uint64_t ext_wakeup_pin_2_mask = 1LL << ext_wakeup_pin_2;
-    esp_deep_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask | ext_wakeup_pin_2_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
-    
-}
-
-void app_main()
+void init_ble()
 {
-    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    wakeupCause();
-    setupPins();
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();	
     if (esp_bt_controller_init(&bt_cfg) != ESP_OK) {
         ESP_LOGI(tag, "Bluetooth controller initialize failed");
         return;
     }
-
     if (esp_bt_controller_enable(ESP_BT_MODE_BTDM) != ESP_OK) {
         ESP_LOGI(tag, "Bluetooth controller enable failed");
         return;
     }
-
-    xTaskCreatePinnedToCore(&bleAdvtTask, "bleAdvtTask", 2048, NULL, 5, NULL, 0);
+    
 }
 
-void readCountFlash(int* serial, int* count) {
-    esp_err_t err = nvs_flash_init();
-     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-        const esp_partition_t* nvs_partition = esp_partition_find_first(
-                ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
-        ESP_ERROR_CHECK( esp_partition_erase_range(nvs_partition, 0, nvs_partition->size) );
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( err );
-
-    nvs_handle my_handle;
-    err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        printf("Error (%d) opening NVS handle!\n", err);
-    } else {
-      
-        err = nvs_get_i32(my_handle, "serial", serial);
-        
-        switch (err) {
-            case ESP_OK:
-                //printf("Read Serial successfull\n");
-                break;
-            case ESP_ERR_NVS_NOT_FOUND:
-                printf("The value is not initialized yet!\n");
-                break;
-            default :
-                printf("Error (%d) reading!\n", err);
-        }
-        err = nvs_get_i32(my_handle, "counter", count);
-        switch (err) {
-            case ESP_OK:
-                //printf("Read Counter successfull\n");
-                break;
-            case ESP_ERR_NVS_NOT_FOUND:
-                printf("The value is not initialized yet!\n");
-                break;
-            default :
-                printf("Error (%d) reading!\n", err);
-        }
-        nvs_close(my_handle);
-    }
+void startAdvertisingName(char* adv_name, int time) {
+	init_ble();
+	strcpy(ADV_DATA, adv_name);
+	TIME = time;
+	xTaskCreatePinnedToCore(&bleAdvtTask, "bleAdvtTask", 2048, NULL, 5, NULL, 0);
 }
 
-void writeDataFlash(int serial, int count) {
-    esp_err_t err = nvs_flash_init();
-     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-        const esp_partition_t* nvs_partition = esp_partition_find_first(
-                ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
-        ESP_ERROR_CHECK( esp_partition_erase_range(nvs_partition, 0, nvs_partition->size) );
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( err );
-    nvs_handle my_handle;
-    err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        printf("Error (%d) opening NVS handle!\n", err);
-    } else {
-        err = nvs_set_i32(my_handle, "serial", serial);
-        err = nvs_set_i32(my_handle, "counter", count);
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    }
-}
-//set counter to 0
-void resetCount() {
-    esp_err_t err = nvs_flash_init();
-     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
-        const esp_partition_t* nvs_partition = esp_partition_find_first(
-                ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
-        ESP_ERROR_CHECK( esp_partition_erase_range(nvs_partition, 0, nvs_partition->size) );
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( err );
-    nvs_handle my_handle;
-    err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        printf("Error (%d) opening NVS handle!\n", err);
-    } else {
-        err = nvs_set_i32(my_handle, "counter", 0);
-        err = nvs_commit(my_handle);
-        nvs_close(my_handle);
-    }
+void setupPins(int firstPin, int secondPin) {
+    esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+    const int ext_wakeup_pin_1 = firstPin;
+    const int ext_wakeup_pin_2 = secondPin;
+    //pinMode(GPIO_INPUT_IO_TRIGGER, INPUT_PULLDOWN);
+    //pinMode(GPIO_INPUT_IO_RESETCOUNT, INPUT_PULLDOWN);
+    const uint64_t ext_wakeup_pin_1_mask = 1LL << ext_wakeup_pin_1;
+    const uint64_t ext_wakeup_pin_2_mask = 1LL << ext_wakeup_pin_2;
+    esp_deep_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask | ext_wakeup_pin_2_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
 }
