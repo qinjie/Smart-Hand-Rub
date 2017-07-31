@@ -54,6 +54,11 @@ extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
     esp_deep_sleep_start();
 } */
 
+int getValueResultADC() {
+	ulp_last_result &= UINT16_MAX;
+	return ulp_last_result;
+}
+
 void init_ulp_program(int low, int high, int period)
 {
     esp_err_t err = ulp_load_binary(0, ulp_main_bin_start,

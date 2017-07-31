@@ -2,6 +2,7 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <driver/adc.h>
 
 #include "esp_deep_sleep.h"
 //#include "ble.h"
@@ -12,44 +13,115 @@
 #define GPIO_INPUT_IO_TRIGGER     2
 #define GPIO_INPUT_IO_RESETCOUNT  13
 
+#define period_time_wake_up_to_estimate_weight 20*1000000
+
+#define Thresholds_Low 50
+#define Thresholds_Press 1500
+#define GPIO_READ_ADC 34 // shouldn't change because it define in ulp_wakeup
+
+#define storage "storage"
+#define arrayName "arrayname"
+#define sizeArray 5
+
 void wakeupCause();
 void setupPins(int firstPin, int secondPin);
 void onPress();
 void delay(int msSeconds);
+void ulp_process(int threshold_press, int period);
+int getWeight();
+int getAndSetAvgWeight();
+void setup();
 
 void app_main() {
 	wakeupCause();
 	setupPins(GPIO_INPUT_IO_TRIGGER, GPIO_INPUT_IO_RESETCOUNT);
-	init_ulp_program(0, 100, 100);
-	start_ulp_program();
-	ESP_ERROR_CHECK( esp_deep_sleep_enable_ulp_wakeup() );
+	esp_deep_sleep_enable_timer_wakeup(period_time_wake_up_to_estimate_weight);
+	//ulp_process();
 	delay(10000);
 	//endAdvertising();
+	
+	printf("Sleeping......\n");
 	esp_deep_sleep_start();
 	//startAdvertisingName("Mr Ngo Dat", 10);
 	//vTaskDelay(5000 / portTICK_PERIOD_MS);
 	//startAdvertisingName("Ahihi", 20);
 }
 
+void setup() {
+	adc1_config_width(ADC_WIDTH_12Bit);
+    adc1_config_channel_atten(ADC1_CHANNEL_6,ADC_ATTEN_0db);
+}
+
+void ulp_process(int threshold_press, int period) {
+	init_ulp_program(0, 100, 100);
+	start_ulp_program();
+	ESP_ERROR_CHECK( esp_deep_sleep_enable_ulp_wakeup() );
+	
+}
+
+int getWeight() {
+    int val = adc1_get_voltage(ADC1_CHANNEL_6);
+	return val;
+}
+//algorithm get value sum minus value in position
+int getAndSetAvgWeight() {
+	int numberArrayCur = getValueWithName(storage, "NumberOfRecord");
+	if (numberArrayCur == -1) numberArrayCur = 0;
+	
+	int sumOfRecord = getValueWithName(storage, "SumOfRecord");
+	if (sumOfRecord == -1) sumOfRecord = 0;
+	
+	int curPosition = getValueWithName(storage, "CurrentPosition");
+	if (curPosition == -1) curPosition = 0;
+	
+	int weight = getWeight();
+	int avgWeight = weight;
+	if (numberArrayCur < sizeArray) {
+		sumOfRecord += weight;
+		curPosition = numberArrayCur;
+		numberArrayCur++;
+		setValueWithName(storage, "NumberOfRecord", numberArrayCur);
+		avgWeight = sumOfRecord/numberArrayCur;
+		
+	} else {
+		sumOfRecord += weight;
+		curPosition++;
+		if (curPosition >= sizeArray) curPosition = 0;
+		sumOfRecord -= getValueAt(storage, arrayName, curPosition);
+		avgWeight = sumOfRecord / sizeArray;
+	}
+	
+	storeValueAt(storage,arrayName,weight,curPosition);
+	setValueWithName(storage, "SumOfRecord", sumOfRecord);
+	setValueWithName(storage, "CurrentPosition", curPosition);
+
+	return avgWeight;
+}
+
+
 void delay(int msSeconds) {
 	vTaskDelay(msSeconds / portTICK_PERIOD_MS);
 }
 
 void onPress() {
-	int serial, count;
-	readCountFlash(&serial, &count);
-	serial++; count++;
-	writeDataFlash(serial, count);
+	int serial = getValueWithName(storage, "serial");
+	if (serial == -1) serial = 0;	
+	serial++;
+	int weight = getAndSetAvgWeight();
+	setValueWithName(storage, "serial", serial);
+	
+	//init ulp_wakeup
+	ulp_process(Thresholds_Press + weight, 100);
 	
 	char bufferSerial[snprintf(NULL, 0, "%d", serial) + 1];
 	sprintf(bufferSerial, "%d", serial);
-	char bufferCount[snprintf(NULL, 0, "%d", count) + 1];
-	sprintf(bufferCount, "%d", count);
+	char bufferWeight[snprintf(NULL, 0, "%d", weight) + 1];
+	sprintf(bufferWeight, "%d", weight);
 	
 	char adv_data[26];
 	strcpy(adv_data, bufferSerial);
 	strcat(adv_data, " ");
-	strcat(adv_data, bufferCount);
+	strcat(adv_data, bufferWeight);
 	beginAdvertising(adv_data);
 	//delay(5000);
 	//printf("Deep sleep starting ...\n");
@@ -59,17 +131,16 @@ void onPress() {
 void wakeupCause() {
 	esp_deep_sleep_wakeup_cause_t cause = esp_deep_sleep_get_wakeup_cause();
     if (cause == ESP_DEEP_SLEEP_WAKEUP_ULP) {
-		printf("Deep sleep wakeup\n");
+		printf("Deep sleep ULP wakeup\n");
+		printf("Value = %d\n", getValueResultADC());
 		onPress();
-        /* printf("ULP did %d measurements since last reset\n", ulp_sample_counter & UINT16_MAX);
-        printf("Thresholds:  low=%d  high=%d\n", ulp_low_thr, ulp_high_thr);
-        ulp_last_result &= UINT16_MAX;
-        printf("Value=%d was %s threshold\n", ulp_last_result,
-                ulp_last_result < ulp_low_thr ? "below" : "above"); */
-        
     } else if (cause == ESP_DEEP_SLEEP_WAKEUP_TIMER){
         //init_ulp_program();
-		printf("Wakeup from timer\n"); 
+		printf("Wakeup from timer\n");
+		int avgWeight = getAndSetAvgWeight();
+		printf("Estimate Weight : %d \n", avgWeight);
+		ulp_process(Thresholds_Press + avgWeight, 100);
+		
     } else if (cause == ESP_DEEP_SLEEP_WAKEUP_EXT1) {
         uint64_t wakeup_pin_mask = esp_deep_sleep_get_ext1_wakeup_status();
         if (wakeup_pin_mask != 0) {
@@ -85,7 +156,9 @@ void wakeupCause() {
         }
     } else {
 		//init_ulp_program();
-		printf("Wake up from something I don't know.ahihi\n");
+		printf("Wake up from something I don't know.ahihi (RESET)\n");
+		int avgWeight = getAndSetAvgWeight();
+		ulp_process(Thresholds_Press + avgWeight, 100);
 		beginAdvertising("Mr Dat hihi");
 	}
 }
