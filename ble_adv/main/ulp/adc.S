@@ -64,7 +64,11 @@ entry:
 	ld r2, r3, 0
 	add r2, r2, 1
 	st r2, r3, 0
-
+	
+	//counter = 50 will reset
+	add r0, r2, 0
+	jumpr wake_up, 10500, ge
+	
 	/* do measurements using ADC */
 	/* r0 will be used as accumulator */
 	move r0, 0

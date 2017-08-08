@@ -54,9 +54,20 @@ extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
     esp_deep_sleep_start();
 } */
 
+void deinit() {
+	uint32_t int_st = READ_PERI_REG(RTC_CNTL_INT_ST_REG);
+   CLEAR_PERI_REG_MASK(RTC_CNTL_INT_ENA_REG, RTC_CNTL_ULP_CP_INT_ENA);
+   WRITE_PERI_REG(RTC_CNTL_INT_CLR_REG, int_st);
+}
+
 int getValueResultADC() {
 	ulp_last_result &= UINT16_MAX;
 	return ulp_last_result;
+}
+
+int getCounter() {
+	ulp_sample_counter &= UINT16_MAX;
+	return ulp_sample_counter;
 }
 
 void init_ulp_program(int low, int high, int period)
@@ -80,10 +91,10 @@ void init_ulp_program(int low, int high, int period)
     ulp_set_wakeup_period(0, period);
 }
 
-void start_ulp_program()
+void start_ulp_program(int counter)
 {
     /* Reset sample counter */
-    ulp_sample_counter = 0;
+    ulp_sample_counter = counter;
 
     /* Start the program */
     esp_err_t err = ulp_run((&ulp_entry - RTC_SLOW_MEM) / sizeof(uint32_t));
