@@ -1,17 +1,24 @@
 <?php
+/**
+ * Created by PhpStorm.
+ * User: PNBao
+ * Date: 8/10/2017
+ * Time: 12:42 PM
+ */
+
 namespace backend\controllers;
 
 use common\components\AccessRule;
+use common\models\SubscriptionForm;
 use Yii;
 use yii\web\Controller;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
-use common\models\LoginForm;
 
 /**
  * Site controller
  */
-class SiteController extends Controller
+class SubscriptionController extends Controller
 {
     /**
      * @inheritdoc
@@ -26,12 +33,12 @@ class SiteController extends Controller
                 ],
                 'rules' => [
                     [
-                        'actions' => ['index','login'],
+                        'actions' => ['index'],
                         'allow' => true,
                         'roles' => ['?'],
                     ],
                     [
-                        'actions' => ['index','logout'],
+                        'actions' => ['index'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -39,9 +46,6 @@ class SiteController extends Controller
             ],
             'verbs' => [
                 'class' => VerbFilter::className(),
-                'actions' => [
-                    'logout' => ['post'],
-                ],
             ],
         ];
     }
@@ -65,39 +69,16 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
-        return $this->render('index');
-    }
-
-    /**
-     * Login action.
-     *
-     * @return string
-     */
-    public function actionLogin()
-    {
-        if (!Yii::$app->user->isGuest) {
-            return $this->goHome();
-        }
-
-        $model = new LoginForm();
-        if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
-        } else {
-            return $this->render('login', [
+        $model = new SubscriptionForm();
+        if ($model->load(Yii::$app->request->post())) {
+            if ($model->subscribe($model->email)) {
+               return true;
+            } else return $this->render('index', [
                 'model' => $model,
             ]);
         }
-    }
-
-    /**
-     * Logout action.
-     *
-     * @return string
-     */
-    public function actionLogout()
-    {
-        Yii::$app->user->logout();
-
-        return $this->goHome();
+        return $this->render('index', [
+            'model' => $model,
+        ]);
     }
 }
