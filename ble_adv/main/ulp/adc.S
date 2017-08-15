@@ -68,7 +68,7 @@ entry:
 	//counter = 50 will reset
 	add r0, r2, 0
 	jumpr wake_up, 10500, ge
-	
+
 	/* do measurements using ADC */
 	/* r0 will be used as accumulator */
 	move r0, 0
