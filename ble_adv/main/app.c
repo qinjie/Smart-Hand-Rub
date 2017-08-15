@@ -37,7 +37,6 @@
 #define NUMBER_DETERMINE_NEED_TOP_UP 3
 #define NUMBER_TIME_GROW_HEIGH 
 
-//#define LEVEL_TIME[5] [50, 165, 350, 1750, 10500]
 const int LEVEL_TIME[] = {50, 165, 350, 1750, 10500};
 #define LEVEL_TIME1 50   //9seconds
 #define LEVEL_TIME2 165  //30seconds
@@ -45,27 +44,23 @@ const int LEVEL_TIME[] = {50, 165, 350, 1750, 10500};
 #define LEVEL_TIME4 1750 //5 minutes
 #define LEVEL_TIME5 10500//30 minutes
 
+#define CUR_LEVEL 4
+
 void wakeupCause();
 void setupPins(int firstPin, int secondPin);
 void onPress();
 void delay(int msSeconds);
 void ulp_process(int threshold_press, int period, int time);
 int getWeight();
-void storeWeight(int weight);
 void storeWeightToArray(int weight);
 int getWeightFromArray();
 void setup();
 void showArray();
-void onChangeGoHeigh(int value, bool fromWakeup);
 void advertising(int serial, int weight, int count,int needTopup);
 void getStableWeight(int* weight, int* press_count) ;
-void predictTopped();
 void wakeUpByPeriod();
 unsigned long millis();
-void predictTakeAway();
-void noticeTopUp();
 bool inTimeAdvertising(unsigned long miliseconds, int threshold);
-void toppedUp();
 
 
 void app_main() {
@@ -138,7 +133,7 @@ void wakeupCause() {
 	
 		storeValueWithName(storage, "LastWeight", weight);
 		int press = weight + THRESHOLDS_PRESS;
-		ulp_process(press, 100000, LEVEL_TIME[1]);
+		ulp_process(press, 100000, LEVEL_TIME[CUR_LEVEL]);
 	}
 }
 
@@ -177,7 +172,7 @@ void onPress() {
 	advertising(serial, weight, count, needTopup);
 	
 	if (!inTimeAdvertising(10000, press)) {
-		ulp_process(press, 100000, LEVEL_TIME[1]);
+		ulp_process(press, 100000, LEVEL_TIME[CUR_LEVEL]);
 	}
 }
 
@@ -213,7 +208,7 @@ void wakeUpByPeriod() {
 	int press = weight + THRESHOLDS_PRESS;
 	advertising(serial, weight, count, needTopup);
 	if (!inTimeAdvertising(10000, press)) {
-		ulp_process(press, 100000, LEVEL_TIME[1]);
+		ulp_process(press, 100000, LEVEL_TIME[CUR_LEVEL]);
 	}
 }
 
