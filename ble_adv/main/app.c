@@ -44,6 +44,8 @@ const int LEVEL_TIME[] = {50, 165, 350, 1750, 10500};
 #define LEVEL_TIME4 1750 //5 minutes
 #define LEVEL_TIME5 10500//30 minutes
 
+const int BENCHMARK[] = {1200, 950, 780, 520, 480, 400, 350, 150, 50};
+const int BMVALUE[] = {500, 450, 400, 350, 300, 250, 200, 150, 50};
 #define CUR_LEVEL 4
 
 void wakeupCause();
@@ -61,7 +63,7 @@ void getStableWeight(int* weight, int* press_count) ;
 void wakeUpByPeriod();
 unsigned long millis();
 bool inTimeAdvertising(unsigned long miliseconds, int threshold);
-
+int lookupWeight(int analogWeight);
 
 void app_main() {
 	setup();
@@ -71,6 +73,15 @@ void app_main() {
 	//esp_deep_sleep_enable_timer_wakeup(period_time_wake_up_to_estimate_weight);
 	printf("Sleeping......\n");
 	esp_deep_sleep_start();
+}
+
+int lookupWeight(int analogWeight) {
+	int i;
+	int n = sizeof(BENCHMARK)/sizeof(BENCHMARK[0]);
+	for(i = 0; i < n; i++) {
+		if (analogWeight >= BENCHMARK[i]) return BMVALUE[i];
+	}
+	return 0;
 }
 
 void setup() {
@@ -149,9 +160,9 @@ void onPress() {
 	printf("Getting stable weight on wake up period\n");
 	getStableWeight(&weight, &press_plus);
 	
-	if (weight < 150) {
+	if (weight <= BENCHMARK[7]) {
 		needTopup = 1;
-	} else if (weight > 300 && needTopup == 1) {
+	} else if (weight >= BENCHMARK[3] && needTopup == 1) {
 		printf("Detected Topped Up, Set Count = 0\n");
 		needTopup = 0;
 		count = 0;
@@ -188,9 +199,9 @@ void wakeUpByPeriod() {
 	printf("Getting stable weight on wake up period\n");
 	getStableWeight(&weight, &press_plus);
 
-	if (weight < 150) {
+	if (weight < BENCHMARK[7]) {
 		needTopup = 1;
-	} else if (weight > 300 && needTopup == 1) {
+	} else if (weight >= BENCHMARK[3] && needTopup == 1) {
 		printf("Detected Topped Up, Set Count = 0\n");
 		needTopup = 0;
 		count = 0;
@@ -329,6 +340,7 @@ void delay(int msSeconds) {
 }
 
 void advertising(int serial, int weight, int count, int needTopup) {
+	weight = lookupWeight(weight);
 	char bufferSerial[snprintf(NULL, 0, "%d", serial) + 1];
 	sprintf(bufferSerial, "%d", serial);
 	char bufferWeight[snprintf(NULL, 0, "%d", weight) + 1];
