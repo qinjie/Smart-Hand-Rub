@@ -44,6 +44,7 @@ const int LEVEL_TIME[] = {50, 165, 350, 1750, 10500};
 #define LEVEL_TIME4 1750 //5 minutes
 #define LEVEL_TIME5 10500//30 minutes
 
+//look up table
 const int BENCHMARK[] = {1200, 950, 780, 520, 480, 400, 350, 150, 50};
 const int BMVALUE[] = {500, 450, 400, 350, 300, 250, 200, 150, 50};
 #define CUR_LEVEL 4
@@ -115,6 +116,8 @@ void wakeupCause() {
 			printf("Wake up from ULP with User affect\n");
 			printf("Value of press = %d\n", getValueResultADC());
 			//printf("Counter = %d \n", getCounter());
+			//wait for press done
+			delay(500);
 			onPress();
 		}	
     } else if (cause == ESP_DEEP_SLEEP_WAKEUP_EXT1) {
