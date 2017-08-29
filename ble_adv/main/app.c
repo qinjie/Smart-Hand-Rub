@@ -14,8 +14,10 @@
 
 #include "driver/rtc_io.h"
 
-#define GPIO_INPUT_IO_TRIGGER     2
-#define GPIO_INPUT_IO_RESETCOUNT  13
+#include "sound.h"
+
+#define GPIO_INPUT_IO_TRIGGER    33
+#define GPIO_INPUT_IO_RESETCOUNT  33
 
 #define period_time_wake_up_to_estimate_weight 5*1000000
 
@@ -65,6 +67,8 @@ void wakeUpByPeriod();
 unsigned long millis();
 bool inTimeAdvertising(unsigned long miliseconds, int threshold);
 int lookupWeight(int analogWeight);
+void advertisingStr(char* adv_data);
+void testRegister();
 
 void app_main() {
 	setup();
@@ -88,12 +92,14 @@ int lookupWeight(int analogWeight) {
 void setup() {
 	adc1_config_width(ADC_WIDTH_12Bit);
     adc1_config_channel_atten(ADC1_CHANNEL_6,ADC_ATTEN_11db);
+	adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_0db);
 }
 
 bool inTimeAdvertising(unsigned long miliseconds, int threshold) {
 	unsigned long start = millis();
 	unsigned long end = millis();
 	while(1) {
+		testRegister();
 		int weight = adc1_get_voltage(ADC1_CHANNEL_6);
 		if (weight > threshold) {
 			delay(800);
@@ -105,6 +111,27 @@ bool inTimeAdvertising(unsigned long miliseconds, int threshold) {
 	}
 }
 
+void testRegister() {
+	int press = adc1_get_voltage(ADC1_CHANNEL_5);
+	if (press) {
+		unsigned long start = millis();
+		while(1) {
+			int hold = adc1_get_voltage(ADC1_CHANNEL_5);
+			if (!hold) return;
+			int current = millis();
+			if (current - start >= 3000) {
+				printf("Play sound Res");
+				play_heigh_sound();
+				printf("Advertising register");
+				advertisingStr("RegisterSMR");
+				inTimeAdvertising(15000,5000);
+				wakeUpByPeriod();
+				return;
+			}
+		}
+	}
+}
+
 void wakeupCause() {
 	esp_deep_sleep_wakeup_cause_t cause = esp_deep_sleep_get_wakeup_cause();
     if (cause == ESP_DEEP_SLEEP_WAKEUP_ULP) {
@@ -113,6 +140,8 @@ void wakeupCause() {
 			printf("Wake up from ULP with TIMER\n");
 			wakeUpByPeriod();
 		} else {
+			//play sound fun
+			fun();
 			printf("Wake up from ULP with User affect\n");
 			printf("Value of press = %d\n", getValueResultADC());
 			//printf("Counter = %d \n", getCounter());
@@ -125,8 +154,9 @@ void wakeupCause() {
         if (wakeup_pin_mask != 0) {
             int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
             printf("Wake up from GPIO %d\n", pin);
+			testRegister();
             if (pin == GPIO_INPUT_IO_TRIGGER) {
-					printf("Wake up from Trigger\n");
+				printf("Wake up from Trigger\n");
             } else if (pin == GPIO_INPUT_IO_RESETCOUNT) {
 					printf("Wake up from reset count\n");
             }
@@ -136,7 +166,9 @@ void wakeupCause() {
 		esp_restart();
     } else {
 		printf("Wake up from RESET\n");
-
+		//play sound fun()
+		printf("Play sound\n");
+		fun();
 		int weight, press_count;
 		//while(1) {
 		getStableWeight(&weight, &press_count);
@@ -347,7 +379,7 @@ void advertising(int serial, int weight, int count, int needTopup) {
 	char bufferSerial[snprintf(NULL, 0, "%d", serial) + 1];
 	sprintf(bufferSerial, "%d", serial);
 	char bufferWeight[snprintf(NULL, 0, "%d", weight) + 1];
-	sprintf(bufferWeight, "%d", weight);
+	sprintf(bufferWeight, "%d", weight/5); // weigh / 500(ml) * 100%
 	char bufferCount[snprintf(NULL, 0, "%d", count) + 1];
 	sprintf(bufferCount, "%d", count);
 	char bufferNeedTopUp[snprintf(NULL, 0, "%d", needTopup) + 1];
@@ -365,6 +397,11 @@ void advertising(int serial, int weight, int count, int needTopup) {
 	} else {
 		strcat(adv_data, "0");
 	} */
+	printf("Begin advertising : \"%s\"\n",adv_data);
+	beginAdvertising(adv_data);
+}
+
+void advertisingStr(char* adv_data) {
 	printf("Begin advertising : \"%s\"\n",adv_data);
 	beginAdvertising(adv_data);
 }
