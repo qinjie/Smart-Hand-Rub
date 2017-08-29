@@ -20,6 +20,12 @@ pathData = os.path.join(path, "data")
 data = {}
 
 numberToStore = 2;
+startTimestamp = round(time.time()*1000)
+
+def ensure_dir(file_path):
+   directory = os.path.dirname(file_path)
+   if not os.path.exists(directory):
+	os.makedirs(directory)
 
 def isNumber(value):
     try:
@@ -30,13 +36,22 @@ def isNumber(value):
 
 def checkAndstore():
     global data
-    if len(data) < numberToStore:
+    global startTimestamp
+    #if len(data) < numberToStore:
+	#return
+    if len(data) == 0:
 	return
+    currentTimeStamp = round(time.time()*1000)
+    if currentTimeStamp - startTimestamp <= 20000:
+	return
+    startTimestamp = currentTimeStamp
     timestamp = "%.0f" % round(time.time()*1000)
+    file_path = os.path.join(pathData, timestamp + '.txt')
+    ensure_dir(file_path)
     storeFile = open(os.path.join(pathData, timestamp + '.txt'),'a+')
     for keys, values in data.items():
-    	storeFile.write(keys[0] + ' ' + keys[1] + ' '+ values[0] + ' ' + values[1]+
-				' ' + keys[2] + ' ' + values[2]+'\r\n')
+    	storeFile.write(keys + ' ' + values[0] + ' '+ values[1] + ' ' + values[2]+
+				' ' + values[3] + ' ' + values[4] + '\r\n')
     data.clear()
     storeFile.close()
     
@@ -48,6 +63,11 @@ def isValidData(data):
     if not isNumber(values[0]) or not isNumber(values[1]) or not isNumber(values[2]) or not isNumber(values[3]):
 	return False
     return True
+
+def displayESPList():
+    list = json.loads(cfg.get("Devices","Addresses"))
+    for add in list:
+	print add + " "
 
 def paireddevicefactory( dev ):
     # get the device name to decide which type of device to create
@@ -67,8 +87,8 @@ def paireddevicefactory( dev ):
 	    return False
 	else:
 	    values = strName.split(' ')
-	    timestamp = "%.0f" % round(time.time()*1000)
-	    data[(dev.addr, values[0], values[3])] = (values[1],values[2],timestamp)
+	    timestamp = "%.0f" % round(time.time())
+	    data[(dev.addr)] = (values[0], values[1], values[2], values[3],timestamp)
 	    checkAndstore()
 	print "Send Data : ", devdata[BTNAME], " From " , dev.addr, "To Server"
     else:    
@@ -89,6 +109,8 @@ def prepairbluetooth():
     os.system('sudo hciconfig hci0 up')
 
 if __name__ == "__main__":
+    print "List ESP mac :"
+    displayESPList()
     prepairbluetooth()
     scandelegate = ScanDelegate()
     scanner = bluepy.btle.Scanner().withDelegate(scandelegate)
