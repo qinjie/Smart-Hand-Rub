@@ -6,7 +6,7 @@
 
 #include "esp_deep_sleep.h"
 #include "esp_system.h"
-//#include "ble.h"
+//#include "ble.h" //Testing only
 #include "SimpleBLE.h"
 #include "read_data.h"
 #include "ulp_adc.h"
@@ -34,11 +34,7 @@
 #define GAP 300
 #define ESTIMATE_COUNT 200
 
-#define WEIGHT_OF_BOTTLE 1300
-#define NUMBER_ACCEPTED_TAKE_AWAY 4
-#define NUMBER_DETERMINE_NEED_TOP_UP 3
-#define NUMBER_TIME_GROW_HEIGH 
-
+//Threshold 10500 in the adc.S file, can change it and here
 const int LEVEL_TIME[] = {50, 165, 350, 1750, 10500};
 #define LEVEL_TIME1 50   //9seconds
 #define LEVEL_TIME2 165  //30seconds
@@ -51,23 +47,49 @@ const int BENCHMARK[] = {1200, 950, 780, 520, 480, 400, 350, 150, 50};
 const int BMVALUE[] = {500, 450, 400, 350, 300, 250, 200, 150, 50};
 #define CUR_LEVEL 4
 
+//Determine the reason of wake up ( ULP or Timer or Reset)
 void wakeupCause();
+
+//Set up 2 Pins for one of two pins of high
 void setupPins(int firstPin, int secondPin);
+
+//Increase Count and Serial, after that advertising and run detect another Press
 void onPress();
+
+//Delay time in Micro Seconds
 void delay(int msSeconds);
+
+//Set up threshold of wakeup pressing, period of ULP loop itself and time for wakeup
 void ulp_process(int threshold_press, int period, int time);
+
+//get Average of Analog in GPIO_READ_ADC in define above
 int getWeight();
-void storeWeightToArray(int weight);
-int getWeightFromArray();
+
+//set up for Read analog from PIN
 void setup();
-void showArray();
+
+//Combine int value to String and start addvertsing
 void advertising(int serial, int weight, int count,int needTopup);
+
+//Get weight and detect if it change not much
 void getStableWeight(int* weight, int* press_count) ;
+
+//Wake up by ULP Timer thanks to the counter of itself
 void wakeUpByPeriod();
+
+//Get time of ESP by millis ( only local )
 unsigned long millis();
+
+//detect in timing of advertising have actions
 bool inTimeAdvertising(unsigned long miliseconds, int threshold);
+
+//Return weight from analog reading to estimate mililiter thanks to BENCHMARK array
 int lookupWeight(int analogWeight);
+
+//Start adverting adv_data
 void advertisingStr(char* adv_data);
+
+//Send "RegisterSMR" to register the ESP
 void testRegister();
 
 void app_main() {
@@ -80,6 +102,7 @@ void app_main() {
 	esp_deep_sleep_start();
 }
 
+//convert analogWeight to ml
 int lookupWeight(int analogWeight) {
 	int i;
 	int n = sizeof(BENCHMARK)/sizeof(BENCHMARK[0]);
@@ -175,8 +198,6 @@ void wakeupCause() {
 		printf("Weight read from REST %d \n", weight);
 		//	delay(100);
 		//}
-		//storeWeightToArray(weight);
-	
 		storeValueWithName(storage, "LastWeight", weight);
 		int press = weight + THRESHOLDS_PRESS;
 		ulp_process(press, 100000, LEVEL_TIME[CUR_LEVEL]);
@@ -222,7 +243,6 @@ void onPress() {
 	}
 }
 
-
 void wakeUpByPeriod() {
 	int serial = getValueWithName(storage, "serial");
 	int count = getValueWithName(storage, "Count");
@@ -265,24 +285,6 @@ void ulp_process(int threshold_press, int period, int time) {
 	init_ulp_program(0, threshold_press, period);
 	start_ulp_program(LEVEL_TIME[4] - time);
 	ESP_ERROR_CHECK( esp_deep_sleep_enable_ulp_wakeup() );
-}
-
-void showArray() {
-	int store[sizeArray];
-	getArrayValues(storage, arrayName, store, sizeArray);
-	int i;
-	for(i = 0; i < sizeArray; i++) {
-		printf("Value at %d is %d \n", i, store[i]);
-	}
-	int numberArrayCur = getValueWithName(storage, "NumberOfRecord");
-	if (numberArrayCur == -1) numberArrayCur = 0;
-	
-	int sumOfRecord = getValueWithName(storage, "SumOfRecord");
-	if (sumOfRecord == -1) sumOfRecord = 0;
-	
-	int curPosition = getValueWithName(storage, "CurrentPosition");
-	if (curPosition == -1) curPosition = 0;
-	printf("NumberOfRecord %d, SumOfRecord %d, CurrentPosition %d \n", numberArrayCur, sumOfRecord, curPosition);
 }
 
 void getStableWeight(int* weight, int* press_count) {
@@ -338,37 +340,6 @@ int getWeight() {
 	}
 	return sum / numberOfCount;
 }
-
-//algorithm get value sum minus value in position
-void storeWeightToArray(int weight) {
-	int numberArrayCur = getValueWithName(storage, "NumberOfRecord");
-	if (numberArrayCur == -1) numberArrayCur = 0;
-	
-	int curPosition = getValueWithName(storage, "CurrentPosition");
-	if (curPosition == -1) curPosition = 0;
-	
-	if (numberArrayCur < sizeArray) {
-		curPosition = numberArrayCur;
-		numberArrayCur++;
-		storeValueWithName(storage, "NumberOfRecord", numberArrayCur);
-	} else {
-		curPosition++;
-		if (curPosition >= sizeArray) curPosition = 0;
-	}
-	storeValueAt(storage,arrayName,weight,curPosition);
-	storeValueWithName(storage, "CurrentPosition", curPosition);
-}
-
-int getWeightFromArray() {
-	//int numberArrayCur = getValueWithName(storage, "NumberOfRecord");
-	int curPosition = getValueWithName(storage, "CurrentPosition");
-	if (curPosition != -1) {
-		return getValueAt(storage, arrayName, curPosition);
-	} else {
-		return -1;
-	}
-}
-
 
 void delay(int msSeconds) {
 	vTaskDelay(msSeconds / portTICK_PERIOD_MS);

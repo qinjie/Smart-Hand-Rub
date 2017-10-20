@@ -1,0 +1,39 @@
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+ram              0x00000000         0x00000400         rw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+
+.text           0x00000000       0x78 load address 0x0000000c
+ *(.text)
+ .text          0x00000000       0x78 adc.ulp.o
+                0x00000000                entry
+                0x0000005c                exit
+                0x00000060                wake_up
+
+.data           0x00000078        0x0 load address 0x00000084
+                0x00000078                . = ALIGN (0x4)
+ *(.data)
+ .data          0x00000078        0x0 adc.ulp.o
+
+.bss            0x00000078       0x10 load address 0x00000084
+                0x00000078                . = ALIGN (0x4)
+ *(.bss)
+ .bss           0x00000078       0x10 adc.ulp.o
+                0x00000078                low_thr
+                0x0000007c                high_thr
+                0x00000080                sample_counter
+                0x00000084                last_result
+
+.header         0x00000088        0xc load address 0x00000000
+                0x00000088        0x4 LONG 0x706c75
+                0x0000008c        0x2 SHORT 0xc LOADADDR (.text)
+                0x0000008e        0x2 SHORT 0x78 SIZEOF (.text)
+                0x00000090        0x2 SHORT 0x0 SIZEOF (.data)
+                0x00000092        0x2 SHORT 0x10 SIZEOF (.bss)
+LOAD adc.ulp.o
+OUTPUT(ulp_main.elf elf32-esp32ulp)

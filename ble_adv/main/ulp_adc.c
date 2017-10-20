@@ -87,7 +87,7 @@ void init_ulp_program(int low, int high, int period)
     ulp_low_thr = low;
     ulp_high_thr = high;
 
-    /* Set ULP wake up period to 100ms */
+    /* Set ULP wake up period to period ( usually 100ms) */
     ulp_set_wakeup_period(0, period);
 }
 

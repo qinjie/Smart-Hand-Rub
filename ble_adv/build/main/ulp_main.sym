@@ -1,0 +1,7 @@
+entry T 00000000 
+exit T 0000005c 
+high_thr B 0000007c 
+last_result B 00000084 
+low_thr B 00000078 
+sample_counter B 00000080 
+wake_up T 00000060 

@@ -65,7 +65,7 @@ entry:
 	add r2, r2, 1
 	st r2, r3, 0
 	
-	//counter = 50 will reset
+	//counter = 105000 will reset
 	add r0, r2, 0
 	jumpr wake_up, 10500, ge
 

@@ -52,7 +52,7 @@
 #define aH 880
 
 #define GPIO_INPUT     0
-#define GPIO_OUTPUT    27
+#define GPIO_OUTPUT    2
 //#define GPIO_OUTPUT_SPEED LEDC_LOW_SPEED_MODE // back too old git commit :-(
 #define GPIO_OUTPUT_SPEED LEDC_HIGH_SPEED_MODE
 
