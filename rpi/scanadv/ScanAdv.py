@@ -17,7 +17,9 @@ cfg = ConfigParser()
 cfg.read(pathDev)
 pathStoreDev = path;
 pathData = os.path.join(path, "data")
+pathRegister = os.path.join(path, "register")
 data = {}
+register = {}
 
 numberToStore = 2;
 startTimestamp = round(time.time()*1000)
@@ -36,15 +38,25 @@ def isNumber(value):
 
 def checkAndstore():
     global data
+    global register
     global startTimestamp
     #if len(data) < numberToStore:
 	#return
-    if len(data) == 0:
-	return
     currentTimeStamp = round(time.time()*1000)
     if currentTimeStamp - startTimestamp <= 20000:
-	return
+        return
     startTimestamp = currentTimeStamp
+
+    if len(register) != 0:
+	timestamp = "%.0f" % round(time.time()*1000)
+	file_path = os.path.join(pathRegister, timestamp + '.txt')
+    	ensure_dir(file_path)
+        storeFile = open(os.path.join(pathRegister, timestamp + '.txt'),'a+')
+	for key, value in register.items():
+	    storeFile.write(key + '\r\n')
+
+    if len(data) == 0:
+	return
     timestamp = "%.0f" % round(time.time()*1000)
     file_path = os.path.join(pathData, timestamp + '.txt')
     ensure_dir(file_path)
@@ -76,6 +88,13 @@ def paireddevicefactory( dev ):
         devdata[desc]=value
     if BTNAME not in devdata.keys():
         devdata[BTNAME] = 'Unknown!'
+    #check register or not
+    global register
+    if (devdata[BTNAME] == 'RegisterSMR'):
+	#store register and return
+	register[(dev.addr)] = dev.addr
+	print "Send Data : ", devdata[BTNAME], " From " , dev.addr, "To Server"
+	return
     list = json.loads(cfg.get("Devices","Addresses"))
 
     global data

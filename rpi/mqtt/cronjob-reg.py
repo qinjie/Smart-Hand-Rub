@@ -14,7 +14,7 @@ def customCallback(client, userdata, message):
 
 path = os.path.dirname(os.path.realpath(__file__))
 
-logging.basicConfig(filename=os.path.join(path,"mqtt.log"),level=logging.INFO)
+logging.basicConfig(filename=os.path.join(path,"mqtt.log"),level=logging.DEBUG)
 
 host = 'aflolh6t6129n.iot.ap-southeast-1.amazonaws.com'
 rootCAPath = os.path.join(path,'root-CA.crt')
@@ -22,7 +22,7 @@ certificatePath = os.path.join(path,'MrDat.cert.pem')
 privateKeyPath = os.path.join(path,'MrDat.private.key')
 
 clientId = 'basicPubSub'
-topic = 'RPi/today'
+topic = 'RPi/register'
 useWebSocket = True
 
 #Init AWSIoTMQTTClient
@@ -52,9 +52,8 @@ try:
     time.sleep(2)
     print "Connected to server"
     logging.info("Connected to server")
-except Exception as e:
+except:
     print "Cann't connect to server"
-    print e
     logging.error("Cann't connect to server")
     sys.exit(0)
 #publish to the same topic in a loop forever
@@ -70,7 +69,7 @@ def getMAC(interface):
 def ensure_dir(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
-pathData = os.path.join(path, '../scanadv/data')
+pathData = os.path.join(path, '../scanadv/register')
 ensure_dir(pathData)
 listFiles = os.listdir(pathData)
 
@@ -85,14 +84,9 @@ for fileName in listFiles:
 		    line = line.strip()
 		    words = line.split(" ")
 		    row = {}
-		    if len(words) == 6:
+		    if len(words) == 1:
 			row["RpiAddress"] = getMAC('eth0')
 		       	row["EspAddress"] = words[0]
-		   	row["SerialCount"] = words[1]
-			row["Weight"] = words[2]
-		    	row["CurrentCount"] = words[3]
-			row["NeedTopUp"] = words[4]
-		    	row["Timestamp"] = words[5]
 	            	rows.append(row)
 		    else:
 		    	print "Format wrong of line"
