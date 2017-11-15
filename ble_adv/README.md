@@ -1,4 +1,4 @@
-# ULP ADC Example
+# ULP ADC WAKE-UP
 
 This example demonstrates how to use the ULP coprocessor to poll ADC in deep sleep.
 
@@ -28,3 +28,8 @@ Getting stable weight on wake up period
 Begin advertising : "2026 0 102 1"
 ....
 ```
+##Install
+    Follow instrucments on this esp-idf link:
+    http://esp-idf.readthedocs.io/en/latest/get-started/index.html
+    
+##Technique : http://esp-idf.readthedocs.io/en/latest/api-reference/system/sleep_modes.html

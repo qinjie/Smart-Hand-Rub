@@ -11,28 +11,19 @@
 #include "read_data.h"
 #include "ulp_adc.h"
 #include <sys/time.h>
-
 #include "driver/rtc_io.h"
-
 #include "sound.h"
 
 #define GPIO_INPUT_IO_TRIGGER    33
 #define GPIO_INPUT_IO_RESETCOUNT  33
 
-#define period_time_wake_up_to_estimate_weight 5*1000000
-
-#define THRESHOLDS_TOP_UP_NUMBER 10
-#define THRESHOLDS_LOW 50
 #define THRESHOLDS_PRESS 700
 #define GPIO_READ_ADC 34 // shouldn't change because it define in ulp_wakeup
-#define THRESHOLDS_OF_WEIGHT_SMALL 100
 
 #define storage "storage"
 #define arrayName "arrayname"
 #define sizeArray 5
-
 #define GAP 300
-#define ESTIMATE_COUNT 200
 
 //Threshold 10500 in the adc.S file, can change it and here
 const int LEVEL_TIME[] = {50, 165, 350, 1750, 10500};
@@ -43,8 +34,9 @@ const int LEVEL_TIME[] = {50, 165, 350, 1750, 10500};
 #define LEVEL_TIME5 10500//30 minutes
 
 //look up table
-const int BENCHMARK[] = {1200, 950, 780, 520, 480, 400, 350, 150, 50};
-const int BMVALUE[] = {500, 450, 400, 350, 300, 250, 200, 150, 50};
+//const int BENCHMARK[] = {1200, 950, 780, 520, 480, 400, 350, 150, 50};
+const int BENCHMARK[] = {1450, 1350, 1250, 1150, 1050, 950, 850, 500, 300, 200}; //second version
+const int BMVALUE[] =   {500,  450,  400,  350,  300,  250, 200, 150, 100, 50};
 #define CUR_LEVEL 4
 
 //Determine the reason of wake up ( ULP or Timer or Reset)
@@ -96,8 +88,6 @@ void app_main() {
 	setup();
 	setupPins(GPIO_INPUT_IO_TRIGGER, GPIO_INPUT_IO_RESETCOUNT);
 	wakeupCause();
-	//printf("Enable timer wake up!\n");
-	//esp_deep_sleep_enable_timer_wakeup(period_time_wake_up_to_estimate_weight);
 	printf("Sleeping......\n");
 	esp_deep_sleep_start();
 }
@@ -305,6 +295,7 @@ void getStableWeight(int* weight, int* press_count) {
 		int max = -1;
 		int i;
 		int sum = 0;
+        //get total of "numberOfCount" time's weight
 		for(i = 0; i < numberOfCount; i++) {
 			int value = adc1_get_voltage(ADC1_CHANNEL_6);
 			if (value > max) max = value;
@@ -313,12 +304,15 @@ void getStableWeight(int* weight, int* press_count) {
 			delay(2000/numberOfCount);
 		}
 		if (abs(max - min) <= gap_minmax) {
+            //Get table successfull - count weight average
 			(*weight) = sum / numberOfCount;
 			stable = true;
 		} else {
 			if (max > lastWeight + THRESHOLDS_PRESS) {
+                //Press on get stable weight
 				(*press_count)++;
 			} else {
+                //Three times already but still not stable, so increase gap_minmax to avoid loop finite
 				if (numberOfLoop >= 3) {
 					numberOfLoop = 0;
 					gap_minmax+= 100;
@@ -363,11 +357,6 @@ void advertising(int serial, int weight, int count, int needTopup) {
 	strcat(adv_data, bufferCount);
 	strcat(adv_data, " ");
 	strcat(adv_data, bufferNeedTopUp);
-	/*if (topup) {
-		strcat(adv_data, "1");
-	} else {
-		strcat(adv_data, "0");
-	} */
 	printf("Begin advertising : \"%s\"\n",adv_data);
 	beginAdvertising(adv_data);
 }
