@@ -2,52 +2,68 @@
 
 /* @var $this yii\web\View */
 
-$this->title = 'My Yii Application';
+/* @var $searchModel app\models\NodePressSearch */
+/* @var $dataProvider yii\data\ActiveDataProvider */
+
+$this->title = 'Ngee Ann Polytechnic';
 ?>
 <div class="site-index">
-
     <div class="jumbotron">
-        <h1>Congratulations!</h1>
-
-        <p class="lead">You have successfully created your Yii-powered application.</p>
-
-        <p><a class="btn btn-lg btn-success" href="http://www.yiiframework.com">Get started with Yii</a></p>
+        <?php
+        if (Yii::$app->user->isGuest) {
+        ?>
+        <h1>Hello there,</h1>
+        <p class="lead">Smart Hand Rub Project.</p>
+        <p>Hand hygiene is now regarded as one of he most important element of infection control activities.
+            Strict adherence to hand hygiene reduces the risk of cross-transmission of infections.
+            It's a must for nurses to hand-rub using sanitizer after he/she contacts a patient.</p>
+        <p><a class="btn btn-lg btn-success" href="<?php Yii::$app->request->BaseUrl ?>/site/login">Login</a></p>
+        <span>At nursing home, bottles of sanitizers are placed around the rooms and wards. It is difficult to enforce the
+            hand hygiene
+            practice of individual nurse, or the overall usage in a nursing room/ward.</span>
     </div>
+    <?php
+    }
+    else {
+    ?>
+    <h1>Hello <?php echo Yii::$app->user->identity->username ?>,</h1>
+    <p class="lead">Smart Hand Rub Admin Panel.</p>
+    </div>
+        <div class="body-content">
+            <div class="row">
+                <div class="col-lg-4">
+                    <h2>Nodes</h2>
 
-    <div class="body-content">
+                    <p>Each node is a Sanitizer bottle, which is mounted around room. Click below for more details.</p>
 
-        <div class="row">
-            <div class="col-lg-4">
-                <h2>Heading</h2>
-
-                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-                    dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip
-                    ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-                    fugiat nulla pariatur.</p>
-
-                <p><a class="btn btn-default" href="http://www.yiiframework.com/doc/">Yii Documentation &raquo;</a></p>
-            </div>
-            <div class="col-lg-4">
-                <h2>Heading</h2>
-
-                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-                    dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip
-                    ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-                    fugiat nulla pariatur.</p>
-
-                <p><a class="btn btn-default" href="http://www.yiiframework.com/forum/">Yii Forum &raquo;</a></p>
-            </div>
-            <div class="col-lg-4">
-                <h2>Heading</h2>
-
-                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et
-                    dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip
-                    ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-                    fugiat nulla pariatur.</p>
-
-                <p><a class="btn btn-default" href="http://www.yiiframework.com/extensions/">Yii Extensions &raquo;</a></p>
+                    <p>
+                        <a class="btn btn-primary" href="<?php Yii::$app->request->BaseUrl ?>/node">List of Nodes</a>
+                        <a class="btn btn-primary" href="<?php Yii::$app->request->BaseUrl ?>/node-summary">Nodes Usage Summary</a>
+                    </p>
+                </div>
+                <div class="col-lg-4">
+                    <h2>Clusters</h2>
+                    <p>Each cluster is a room/ward in the hospital. Click below for more details.</p>
+                    <p>
+                        <a class="btn btn-primary" href="<?php Yii::$app->request->BaseUrl ?>/cluster">List of Clusters</a>
+                        <a class="btn btn-primary" href="<?php Yii::$app->request->BaseUrl ?>/cluster-summary">Clusters Info Summary</a>
+                    </p>
+                </div>
+                <div class="col-lg-4">
+                    <h2>Gateways</h2>
+                    <p>Each gateway collect information from Sanitizer bottles and send data to server. Click below for more
+                        details.</p>
+                    <p><a class="btn btn-primary" href="<?php Yii::$app->request->BaseUrl ?>/gateway">Gateways</a>
+                    </p>
+                </div>
+                <div class="col-lg-4">
+                    <h2>Subscribers</h2>
+                    <p>Add new email to receive Sanitizers daily reports.</p>
+                        <a class="btn btn-primary" href="<?php Yii::$app->request->BaseUrl ?>/subscription">Subscribe</a></p>
+                </div>
             </div>
         </div>
-
-    </div>
+    <?php
+    }
+    ?>
 </div>
